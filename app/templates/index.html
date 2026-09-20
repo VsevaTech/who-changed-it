@@ -3,71 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Who Changed It? — semantic JSON config diff</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>Who Changed It?</title>
+  <meta name="description" content="Turn noisy JSON diffs into human-readable configuration changes.">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='%2334d399' font-family='monospace' font-weight='700'%3E%3F%3C/text%3E%3C/svg%3E">
 </head>
 <body>
 <header class="top">
-  <div class="brand">
-    <span class="logo">Δ</span>
-    <div>
-      <h1>Who Changed It?</h1>
-      <p class="tagline">Turn noisy JSON diffs into human-readable configuration changes.</p>
-    </div>
-  </div>
-  <div class="privacy-badge" title="JSON is processed in memory and discarded after the response. No database, no logging of payloads, no analytics.">
-    Processed in memory · nothing stored
+  <div class="wrap">
+    <h1><span class="mark">?</span> Who Changed It?</h1>
+    <p class="tagline">Turn noisy JSON diffs into human-readable configuration changes.</p>
   </div>
 </header>
 
-<main>
+<main class="wrap">
   <form id="compare-form" method="post" action="/compare" enctype="multipart/form-data" novalidate>
-    <div class="tabs" role="tablist">
-      <button type="button" class="tab active" data-mode="paste" role="tab" aria-selected="true">Paste</button>
-      <button type="button" class="tab" data-mode="upload" role="tab" aria-selected="false">Upload</button>
+    <div class="mode-switch" role="tablist">
+      <button type="button" class="tab active" data-mode="paste" role="tab">Paste</button>
+      <button type="button" class="tab" data-mode="upload" role="tab">Upload</button>
+      <span class="hint">Max {{ max_kb }} KB per side · processed in memory only</span>
     </div>
 
-    <section class="mode mode-paste">
-      <div class="two-col">
-        <label class="field">
-          <span class="field-title">BEFORE</span>
-          <textarea name="before_text" id="before_text" spellcheck="false" placeholder='{ "payments": { "timeout": 30 } }'></textarea>
-        </label>
-        <label class="field">
-          <span class="field-title">AFTER</span>
-          <textarea name="after_text" id="after_text" spellcheck="false" placeholder='{ "payments": { "timeout": 10 } }'></textarea>
-        </label>
-      </div>
+    <section class="inputs mode-paste" id="mode-paste">
+      <label class="side">
+        <span class="side-title before">BEFORE</span>
+        <textarea name="before_text" id="before_text" spellcheck="false" placeholder='{ "payments": { "timeout": 30 } }'></textarea>
+      </label>
+      <label class="side">
+        <span class="side-title after">AFTER</span>
+        <textarea name="after_text" id="after_text" spellcheck="false" placeholder='{ "payments": { "timeout": 10 } }'></textarea>
+      </label>
     </section>
 
-    <section class="mode mode-upload hidden">
-      <div class="two-col">
-        <label class="field file-field">
-          <span class="field-title">Before configuration</span>
-          <input type="file" name="before_file" id="before_file" accept=".json,application/json">
-          <span class="hint">Upload JSON (max {{ max_mb }} MB)</span>
-        </label>
-        <label class="field file-field">
-          <span class="field-title">After configuration</span>
-          <input type="file" name="after_file" id="after_file" accept=".json,application/json">
-          <span class="hint">Upload JSON (max {{ max_mb }} MB)</span>
-        </label>
-      </div>
+    <section class="inputs mode-upload hidden" id="mode-upload">
+      <label class="side drop">
+        <span class="side-title before">Before configuration</span>
+        <input type="file" name="before_file" id="before_file" accept=".json,application/json">
+        <span class="file-name" data-for="before_file">Upload JSON</span>
+      </label>
+      <label class="side drop">
+        <span class="side-title after">After configuration</span>
+        <input type="file" name="after_file" id="after_file" accept=".json,application/json">
+        <span class="file-name" data-for="after_file">Upload JSON</span>
+      </label>
     </section>
+
+    <details class="advanced">
+      <summary>Advanced: array identity keys</summary>
+      <label>
+        Candidate keys, in priority order (comma-separated)
+        <input type="text" name="identity_keys" placeholder="id, uuid, code, key, name, tid, terminal_id, company_id, location_id">
+      </label>
+      <p class="muted">A key is used only when every element of the array has it and it is unique on both sides. Otherwise the array is compared by position and the report says so.</p>
+    </details>
 
     <div class="actions">
       <button type="submit" class="primary" id="compare-btn">Compare configurations</button>
-      <button type="button" class="ghost" id="load-example">Load example</button>
-      <span class="status" id="status" aria-live="polite"></span>
+      <button type="button" class="ghost" id="load-demo">Load demo</button>
+      <button type="button" class="ghost" id="clear">Clear</button>
     </div>
   </form>
 
-  <section id="result" aria-live="polite"></section>
+  <section id="results" aria-live="polite"></section>
 </main>
 
-<footer>
-  <span>who-changed-it v{{ version }}</span>
-  <span>Deterministic · No AI · Self-hosted</span>
+<footer class="wrap foot">
+  <p>Deterministic semantic diff · no AI · no storage · no analytics ·
+    <a href="https://github.com/VsevaTech/who-changed-it" rel="noopener">Source</a></p>
 </footer>
 
 <script src="/static/app.js"></script>

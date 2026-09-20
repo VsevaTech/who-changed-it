@@ -1,0 +1,199 @@
+{
+  "schema_version": 3,
+  "company": {
+    "id": "cmp_48213",
+    "legal_name": "Al Noor Trading LLC",
+    "trade_name": "Al Noor Cafe",
+    "country": "AE",
+    "currency": "AED",
+    "timezone": "Asia/Dubai",
+    "trn": "100234567800003",
+    "mcc": "5812",
+    "status": "active",
+    "contact": {
+      "email": "owner@alnoor.example",
+      "phone": "+971501234567",
+      "address": {
+        "line1": "Shop 12, Marina Walk",
+        "city": "Dubai",
+        "emirate": "Dubai",
+        "postal_code": "00000"
+      }
+    },
+    "onboarded_at": "2025-11-03T09:14:00Z"
+  },
+  "payment_settings": {
+    "timeout_seconds": 30,
+    "capture_mode": "auto",
+    "allow_partial_refunds": true,
+    "max_refund_days": 90,
+    "tip_enabled": true,
+    "tip_presets_percent": [5, 10, 15],
+    "surcharge": {
+      "enabled": false,
+      "percent": 0
+    },
+    "card_schemes": ["visa", "mastercard", "unionpay"],
+    "wallets": {
+      "apple_pay": true,
+      "google_pay": true,
+      "samsung_pay": false
+    },
+    "limits": {
+      "min_amount": 1.00,
+      "max_amount": 25000.00,
+      "daily_volume": 150000.00
+    },
+    "acquirer": {
+      "code": "MSH",
+      "merchant_id": "000123456789",
+      "settlement_currency": "AED",
+      "settlement_delay_days": 1
+    },
+    "risk": {
+      "velocity_limit_per_minute": 20,
+      "block_on_cvv_mismatch": true,
+      "three_ds_mode": "adaptive"
+    }
+  },
+  "billing": {
+    "plan": "standard",
+    "billing_cycle": "monthly",
+    "billing_day": 1,
+    "vat_percent": 5,
+    "invoice_email": "finance@alnoor.example",
+    "payment_method": "card",
+    "auto_charge": true,
+    "grace_period_days": 7,
+    "fees": {
+      "monthly_fee": 99.00,
+      "transaction_fee_percent": 1.75,
+      "transaction_fee_fixed": 0.50
+    }
+  },
+  "features": {
+    "tips": true,
+    "loyalty": false,
+    "qr_payments": true,
+    "recurring_payments": false,
+    "invoicing": true,
+    "multi_currency": false,
+    "offline_mode": false,
+    "receipts": {
+      "email": true,
+      "sms": true,
+      "print": true
+    }
+  },
+  "integrations": {
+    "erp": {
+      "provider": "zoho",
+      "enabled": true,
+      "sync_interval_minutes": 15,
+      "client_id": "zoho-app-8842",
+      "client_secret": "zsk_live_5f8a2b7c9d1e4f6a8b3c",
+      "webhook_url": "https://erp.alnoor.example/webhooks/pos"
+    },
+    "accounting_export": {
+      "format": "csv",
+      "schedule": "daily"
+    }
+  },
+  "locations": [
+    {
+      "id": "loc_001",
+      "name": "Marina Walk",
+      "address": "Shop 12, Marina Walk, Dubai",
+      "opening_hours": {
+        "mon_fri": "07:00-23:00",
+        "sat_sun": "08:00-01:00"
+      },
+      "active": true
+    },
+    {
+      "id": "loc_002",
+      "name": "JLT Cluster D",
+      "address": "Unit 4, Cluster D, JLT, Dubai",
+      "opening_hours": {
+        "mon_fri": "07:30-22:00",
+        "sat_sun": "09:00-22:00"
+      },
+      "active": true
+    }
+  ],
+  "terminals": [
+    {
+      "id": "T-101",
+      "tid": "887230",
+      "location_id": "loc_001",
+      "model": "PAX A920",
+      "serial": "A920-00112233",
+      "firmware": "2.4.1",
+      "status": "active",
+      "features": {
+        "contactless": true,
+        "pin_on_glass": true,
+        "printer": true
+      }
+    },
+    {
+      "id": "T-102",
+      "tid": "887231",
+      "location_id": "loc_001",
+      "model": "PAX A920",
+      "serial": "A920-00112244",
+      "firmware": "2.4.1",
+      "status": "active",
+      "features": {
+        "contactless": true,
+        "pin_on_glass": true,
+        "printer": true
+      }
+    },
+    {
+      "id": "T-103",
+      "tid": "887232",
+      "location_id": "loc_002",
+      "model": "PAX A77",
+      "serial": "A77-00998877",
+      "firmware": "2.3.9",
+      "status": "active",
+      "features": {
+        "contactless": true,
+        "pin_on_glass": false,
+        "printer": false
+      }
+    },
+    {
+      "id": "T-104",
+      "tid": "887233",
+      "location_id": "loc_002",
+      "model": "PAX A77",
+      "serial": "A77-00998878",
+      "firmware": "2.3.9",
+      "status": "inactive",
+      "features": {
+        "contactless": true,
+        "pin_on_glass": false,
+        "printer": false
+      }
+    }
+  ],
+  "notifications": {
+    "settlement_report": {
+      "enabled": true,
+      "channels": ["email"],
+      "recipients": ["finance@alnoor.example"]
+    },
+    "chargeback_alert": {
+      "enabled": true,
+      "channels": ["email", "sms"],
+      "recipients": ["owner@alnoor.example"]
+    }
+  },
+  "metadata": {
+    "updated_by": "ops@fortis.example",
+    "updated_at": "2026-09-18T14:02:11Z",
+    "revision": 41
+  }
+}

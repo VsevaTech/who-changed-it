@@ -1,0 +1,31 @@
+{#- One change card. Values are already masked by the diff engine. -#}
+<article class="change type-{{ change.type.value }}{% if change.sensitive %} sensitive{% endif %}"
+         data-type="{{ change.type.value }}"
+         data-search="{{ (change.path ~ ' ' ~ change.display_path ~ ' ' ~ change.group) | lower }}">
+  <div class="change-head">
+    <span class="badge {{ change.type.value }}">{{ change.type.value | capitalize }}</span>
+    <h4 class="display-path">{{ change.display_path }}</h4>
+    {% if change.sensitive %}<span class="pill lock" title="Value masked: key looks sensitive">masked</span>{% endif %}
+    {% if change.note %}<span class="pill note" title="No reliable identity key was found for this array">{{ change.note }}</span>{% endif %}
+  </div>
+  <code class="raw-path">{{ change.path }}</code>
+  <div class="values">
+    {% if change.type.value == 'changed' %}
+      {% if is_block(change.old_value) or is_block(change.new_value) %}
+        <pre class="val old">{{ format_value(change.old_value) }}</pre>
+        <span class="arrow">→</span>
+        <pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% else %}
+        <span class="val old">{{ format_value(change.old_value) }}</span>
+        <span class="arrow">→</span>
+        <span class="val new">{{ format_value(change.new_value) }}</span>
+      {% endif %}
+    {% elif change.type.value == 'added' %}
+      {% if is_block(change.new_value) %}<pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% else %}<span class="val new">{{ format_value(change.new_value) }}</span>{% endif %}
+    {% else %}
+      {% if is_block(change.old_value) %}<pre class="val old">{{ format_value(change.old_value) }}</pre>
+      {% else %}<span class="val old">{{ format_value(change.old_value) }}</span>{% endif %}
+    {% endif %}
+  </div>
+</article>

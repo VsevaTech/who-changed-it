@@ -1,0 +1,56 @@
+{#- In-page results panel. report_json is the already-masked report used for exports. -#}
+<div class="panel results" id="results-panel">
+  {% if report.summary.total == 0 %}
+  <div class="equivalent">
+    <div class="check">✓</div>
+    <h2>Configurations are equivalent</h2>
+    <p>No semantic changes detected.</p>
+    <p class="muted">Key order, whitespace, formatting and reordering of reliably matched array elements are not counted as changes.</p>
+  </div>
+  {% else %}
+  <div class="summary">
+    <div class="total"><strong id="summary-total">{{ report.summary.total }}</strong> change{{ '' if report.summary.total == 1 else 's' }} detected</div>
+    <div class="counts">
+      <span class="count changed"><b>{{ report.summary.changed }}</b> Changed</span>
+      <span class="count added"><b>{{ report.summary.added }}</b> Added</span>
+      <span class="count removed"><b>{{ report.summary.removed }}</b> Removed</span>
+    </div>
+  </div>
+
+  {% if report.notes %}
+  <ul class="notes">
+    {% for note in report.notes %}<li>{{ note }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="toolbar">
+    <div class="filters" role="group" aria-label="Filter by change type">
+      <button type="button" class="filter active" data-filter="all">All</button>
+      <button type="button" class="filter" data-filter="changed">Changed</button>
+      <button type="button" class="filter" data-filter="added">Added</button>
+      <button type="button" class="filter" data-filter="removed">Removed</button>
+    </div>
+    <input type="search" id="search" placeholder="Search path…" autocomplete="off" aria-label="Search path">
+    <div class="exports">
+      <form method="post" action="/export/html" class="inline">
+        <input type="hidden" name="report" value="{{ report_json }}">
+        <button type="submit" class="ghost">Download HTML report</button>
+      </form>
+      <form method="post" action="/export/json" class="inline">
+        <input type="hidden" name="report" value="{{ report_json }}">
+        <button type="submit" class="ghost">Download JSON report</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="groups">
+  {% for group_name, changes in groups %}
+    <section class="group" data-group="{{ group_name }}">
+      <h3>{{ group_name }} <span class="group-count">{{ changes | length }}</span></h3>
+      {% for change in changes %}{% include "_change_row.html" %}{% endfor %}
+    </section>
+  {% endfor %}
+  </div>
+  <p class="empty-filter hidden" id="empty-filter">No changes match the current filter.</p>
+  {% endif %}
+</div>

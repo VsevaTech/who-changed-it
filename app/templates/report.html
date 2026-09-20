@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — Who Changed It?</title>
+<style>
+  :root { --bg:#ffffff; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#f8fafc;
+          --changed:#2563eb; --added:#059669; --removed:#dc2626; --old:#fee2e2; --new:#dcfce7; }
+  body { margin:0; font:15px/1.5 -apple-system, "Segoe UI", Roboto, Inter, sans-serif; color:var(--fg); background:var(--bg); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .meta { color: var(--muted); margin-bottom: 24px; }
+  .summary { display:flex; gap:24px; align-items:baseline; flex-wrap:wrap; padding:16px 20px; border:1px solid var(--line); border-radius:12px; background:var(--card); margin-bottom:24px; }
+  .summary .total { font-size: 22px; font-weight: 700; }
+  .count b { font-size:18px; margin-right:4px; }
+  .count.changed b { color: var(--changed);} .count.added b { color: var(--added);} .count.removed b { color: var(--removed);}
+  h2 { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; }
+  .change { border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-bottom:10px; background:#fff; }
+  .head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .head h4 { margin:0; font-size:16px; font-weight:600; }
+  .badge { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:999px; color:#fff; }
+  .badge.changed { background: var(--changed);} .badge.added { background: var(--added);} .badge.removed { background: var(--removed);}
+  .pill { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:1px 8px; }
+  code.path { display:block; color:var(--muted); font-size:12px; margin:4px 0 8px; }
+  .values { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+  .val { padding:2px 8px; border-radius:6px; white-space:pre-wrap; word-break:break-word; margin:0; }
+  .val.old { background: var(--old); } .val.new { background: var(--new); }
+  .arrow { color: var(--muted); }
+  .equivalent { text-align:center; padding:40px 20px; border:1px solid var(--line); border-radius:12px; }
+  .equivalent .check { font-size:40px; color: var(--added); }
+  .notes { color: var(--muted); font-size: 13px; }
+  footer { margin-top:40px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>{{ title }}</h1>
+  <div class="meta">Generated {{ generated_at }} by Who Changed It? · sensitive values are masked · deterministic semantic diff</div>
+
+  {% if report.summary.total == 0 %}
+    <div class="equivalent"><div class="check">✓</div><h2 style="text-transform:none;color:var(--fg);font-size:20px">Configurations are equivalent</h2><p>No semantic changes detected.</p></div>
+  {% else %}
+  <div class="summary">
+    <div class="total">{{ report.summary.total }} change{{ '' if report.summary.total == 1 else 's' }}</div>
+    <span class="count changed"><b>{{ report.summary.changed }}</b>Changed</span>
+    <span class="count added"><b>{{ report.summary.added }}</b>Added</span>
+    <span class="count removed"><b>{{ report.summary.removed }}</b>Removed</span>
+  </div>
+  {% if report.notes %}<ul class="notes">{% for n in report.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+
+  {% for group_name, changes in groups %}
+  <h2>{{ group_name }} ({{ changes | length }})</h2>
+  {% for change in changes %}
+  <div class="change">
+    <div class="head">
+      <span class="badge {{ change.type.value }}">{{ change.type.value }}</span>
+      <h4>{{ change.display_path }}</h4>
+      {% if change.sensitive %}<span class="pill">masked</span>{% endif %}
+      {% if change.note %}<span class="pill">{{ change.note }}</span>{% endif %}
+    </div>
+    <code class="path">{{ change.path }}</code>
+    <div class="values">
+      {% if change.type.value == 'changed' %}
+        <pre class="val old">{{ format_value(change.old_value) }}</pre><span class="arrow">→</span><pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% elif change.type.value == 'added' %}
+        <pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% else %}
+        <pre class="val old">{{ format_value(change.old_value) }}</pre>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+  {% endif %}
+  <footer>This report lists configuration differences only. It is not a security, audit or compliance record.</footer>
+</div>
+</body>
+</html>
