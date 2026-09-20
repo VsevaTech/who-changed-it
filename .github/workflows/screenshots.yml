@@ -1,0 +1,61 @@
+name: Demo & screenshots
+
+# Runs the end-to-end demo (scripts/demo.py) against the Docker image and commits the
+# resulting screenshots to docs/. Triggered manually, or automatically when the demo script,
+# UI or examples change.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/demo.py"
+      - "app/templates/**"
+      - "app/static/**"
+      - "examples/**"
+      - ".github/workflows/screenshots.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and start the app
+        run: |
+          docker build -t who-changed-it:demo .
+          docker run -d --name wci -p 8000:8000 who-changed-it:demo
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/healthz >/dev/null && break; sleep 1
+          done
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Run demo
+        run: python scripts/demo.py --base http://127.0.0.1:8000 --out docs
+      - name: Commit screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r -q --ignore-unmatch .probe
+          git add docs/*.png
+          if git diff --cached --quiet; then
+            echo "No screenshot changes."
+          else
+            git commit -m "docs: refresh demo screenshots [skip ci]"
+            git push
+          fi
+      - name: Stop app
+        if: always()
+        run: docker rm -f wci || true

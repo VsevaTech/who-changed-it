@@ -1,25 +1,35 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from app.models.diff import DiffResult
-from app.services.compare import compare_documents
+from app.models.diff import DiffReport
+from app.services.diff_engine import semantic_diff
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 
 
-def diff(before: Any, after: Any) -> DiffResult:
-    """Round-trip through JSON text so tests exercise the real parser."""
-    return compare_documents(json.dumps(before), json.dumps(after))
+def loads(text: str) -> Any:
+    return json.loads(text, parse_float=Decimal)
+
+
+def diff(before: Any, after: Any) -> DiffReport:
+    return semantic_diff(before, after)
+
+
+def paths(report: DiffReport) -> list[str]:
+    return [c.path for c in report.changes]
 
 
 @pytest.fixture
-def example_pair() -> tuple[bytes, bytes]:
-    return (
-        (EXAMPLES / "merchant-before.json").read_bytes(),
-        (EXAMPLES / "merchant-after.json").read_bytes(),
-    )
+def demo_before() -> bytes:
+    return (EXAMPLES / "merchant-before.json").read_bytes()
+
+
+@pytest.fixture
+def demo_after() -> bytes:
+    return (EXAMPLES / "merchant-after.json").read_bytes()
