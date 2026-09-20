@@ -1,10 +1,17 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Override when Docker Hub is not reachable from your network.
+        BASE_IMAGE: ${WCI_BASE_IMAGE:-python:3.12-slim}
     image: who-changed-it:local
     container_name: who-changed-it
     ports:
-      - "8000:8000"
+      - "${WCI_PORT:-8000}:8000"
+    environment:
+      # Max size per input document, in bytes (default 2 MiB).
+      WCI_MAX_INPUT_BYTES: ${WCI_MAX_INPUT_BYTES:-2097152}
     read_only: true
     tmpfs:
       - /tmp

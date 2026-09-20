@@ -1,11 +1,10 @@
 .git
 .venv
-.github
+__pycache__
+*.pyc
 .pytest_cache
 .ruff_cache
-__pycache__
-**/__pycache__
 tests
 docs
-*.md
-!README.md
+docs
+.github

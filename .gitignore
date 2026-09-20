@@ -1,23 +1,13 @@
-# Python
 __pycache__/
 *.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
 *.egg-info/
 build/
 dist/
-.venv/
-venv/
-
-# Tooling
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# Editors / OS
+.env
+.DS_Store
 .idea/
 .vscode/
-.DS_Store
-
-# Local scratch
-*.local.json
