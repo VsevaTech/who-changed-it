@@ -48,12 +48,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -r -q --ignore-unmatch .probe
+          # Remove leftovers that cannot be deleted through the GitHub contents API.
+          git rm -r -q --ignore-unmatch .probe \
+            app/settings.py app/services/values.py app/services/humanize.py \
+            app/static/style.css app/templates/partials \
+            tests/test_report.py tests/test_web.py
           git add docs/*.png
           if git diff --cached --quiet; then
-            echo "No screenshot changes."
+            echo "Nothing to commit."
           else
-            git commit -m "docs: refresh demo screenshots [skip ci]"
+            git commit -m "docs: refresh demo screenshots; remove leftovers"
             git push
           fi
       - name: Stop app

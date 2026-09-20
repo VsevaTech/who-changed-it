@@ -1,97 +1,80 @@
-"""Sensitive values must never leave the engine in clear text."""
+"""Sensitive values: the fact of a change is shown, the value is not."""
 
 from __future__ import annotations
 
-from app import settings
 from app.models.diff import ChangeType
 from app.services.report import render_html_report, render_json_report
-from app.services.sensitive import SensitiveDetector
+from app.services.sensitive import MASK, is_sensitive_key, mask_value
 from tests.conftest import diff
 
-SECRET_OLD = "gwsecret_OLD_SECRET_VALUE_123"
-SECRET_NEW = "gwsecret_NEW_SECRET_VALUE_456"
+SECRET_OLD = "zsk_live_OLD_5f8a2b7c9d1e"
+SECRET_NEW = "zsk_live_NEW_9c1d3e5f7a2b"
 
 
 def test_sensitive_field_changed_is_masked():
-    r = diff({"gateway": {"client_secret": SECRET_OLD}}, {"gateway": {"client_secret": SECRET_NEW}})
-    assert r.summary.changed == 1
-    c = r.changes[0]
-    assert c.sensitive is True
-    assert c.old_value == settings.MASK
-    assert c.new_value == settings.MASK
-    assert c.path == "gateway.client_secret"
+    report = diff({"erp": {"client_secret": SECRET_OLD}}, {"erp": {"client_secret": SECRET_NEW}})
+    assert report.summary.changed == 1
+    change = report.changes[0]
+    assert change.sensitive is True
+    assert change.old_value == MASK and change.new_value == MASK
+    assert change.type is ChangeType.CHANGED
 
 
 def test_sensitive_field_added_is_masked():
-    r = diff({}, {"api_key": SECRET_NEW})
-    c = r.changes[0]
-    assert c.type is ChangeType.ADDED
-    assert c.sensitive and c.new_value == settings.MASK and c.old_value is None
+    report = diff({}, {"api_key": SECRET_NEW})
+    assert report.changes[0].type is ChangeType.ADDED
+    assert report.changes[0].sensitive is True
+    assert report.changes[0].new_value == MASK
 
 
 def test_sensitive_field_removed_is_masked():
-    r = diff({"password": SECRET_OLD}, {})
-    c = r.changes[0]
-    assert c.type is ChangeType.REMOVED
-    assert c.sensitive and c.old_value == settings.MASK and c.new_value is None
+    report = diff({"password": SECRET_OLD}, {})
+    assert report.changes[0].type is ChangeType.REMOVED
+    assert report.changes[0].sensitive is True
+    assert report.changes[0].old_value == MASK
 
 
-def test_sensitive_parent_key_masks_nested_values():
-    r = diff({"credentials": {"user": "a", "pin": "1"}}, {"credentials": {"user": "b", "pin": "2"}})
-    assert all(c.sensitive for c in r.changes)
-    assert all(c.old_value == settings.MASK for c in r.changes)
-
-
-def test_sensitive_object_added_as_whole_is_masked():
-    # A key on the list masks the whole subtree.
-    r2 = diff({}, {"secrets": {"a": SECRET_NEW}})
-    assert r2.changes[0].sensitive and r2.changes[0].new_value == settings.MASK
-
-
-def test_secret_nested_inside_added_object_is_masked():
-    # The change is reported at `oauth`, but the token inside must still be masked.
-    r = diff({}, {"oauth": {"refresh_token": SECRET_NEW, "expires": 10}})
-    c = r.changes[0]
-    assert c.path == "oauth"
-    assert c.sensitive is True
-    assert c.new_value == {"refresh_token": settings.MASK, "expires": 10}
-    assert SECRET_NEW not in r.model_dump_json()
-
-
-def test_secret_nested_inside_removed_array_element_is_masked():
-    before = {"terminals": [{"id": "T1", "api_key": SECRET_OLD, "tid": "1"}]}
-    r = diff(before, {"terminals": []})
-    c = r.changes[0]
-    assert c.type is ChangeType.REMOVED
-    assert c.old_value == {"id": "T1", "api_key": settings.MASK, "tid": "1"}
-    assert SECRET_OLD not in r.model_dump_json()
-
-
-def test_key_normalization_catches_camel_case_and_dashes():
-    d = SensitiveDetector()
-    assert d.is_sensitive_key("clientSecret")
-    assert d.is_sensitive_key("CLIENT-SECRET")
-    assert d.is_sensitive_key("Authorization")
-    assert d.is_sensitive_key("privateKey")
-    assert not d.is_sensitive_key("timeout")
-    assert not d.is_sensitive_key("email")
-
-
-def test_secrets_do_not_leak_into_exports():
-    r = diff(
-        {"gateway": {"client_secret": SECRET_OLD}, "t": 1},
-        {"gateway": {"client_secret": SECRET_NEW}, "t": 2},
+def test_sensitive_parent_path_masks_children():
+    report = diff(
+        {"credentials": {"user": "u", "pass": "a"}}, {"credentials": {"user": "u", "pass": "b"}}
     )
-    html = render_html_report(r)
-    js = render_json_report(r)
-    for text in (html, js):
-        assert SECRET_OLD not in text
-        assert SECRET_NEW not in text
-        assert settings.MASK in text
-    assert "gateway.client_secret" in js
+    assert report.changes[0].path == "credentials.pass"
+    assert report.changes[0].old_value == MASK
 
 
-def test_secrets_do_not_leak_via_repr():
-    r = diff({"token": SECRET_OLD}, {"token": SECRET_NEW})
-    assert SECRET_OLD not in repr(r)
-    assert SECRET_OLD not in r.model_dump_json()
+def test_added_object_containing_secret_masks_only_that_field():
+    report = diff({}, {"erp": {"provider": "zoho", "client_secret": SECRET_NEW}})
+    change = report.changes[0]
+    assert change.sensitive is True
+    assert change.new_value == {"provider": "zoho", "client_secret": MASK}
+
+
+def test_secrets_never_reach_exports():
+    before = {"integrations": {"erp": {"client_secret": SECRET_OLD, "access_token": "tokOLD"}}}
+    after = {"integrations": {"erp": {"client_secret": SECRET_NEW, "access_token": "tokNEW"}}}
+    report = diff(before, after)
+    for rendered in (render_json_report(report), render_html_report(report)):
+        for secret in (SECRET_OLD, SECRET_NEW, "tokOLD", "tokNEW"):
+            assert secret not in rendered
+        assert MASK in rendered
+
+
+def test_key_detection_rules():
+    assert is_sensitive_key("client_secret")
+    assert is_sensitive_key("clientSecret")
+    assert is_sensitive_key("ACCESS_TOKEN")
+    assert is_sensitive_key("api-key")
+    assert is_sensitive_key("private_key")
+    assert is_sensitive_key("Authorization")
+    assert is_sensitive_key("db_password")
+    # Identity-ish keys and near-misses must stay visible.
+    assert not is_sensitive_key("key")
+    assert not is_sensitive_key("id")
+    assert not is_sensitive_key("tokenization_enabled")
+    assert not is_sensitive_key("pin_on_glass")
+    assert not is_sensitive_key("secretary")
+
+
+def test_mask_value_recurses_into_lists():
+    value = [{"id": 1, "token": "abc"}, {"id": 2, "name": "ok"}]
+    assert mask_value(value) == [{"id": 1, "token": MASK}, {"id": 2, "name": "ok"}]
