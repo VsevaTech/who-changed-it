@@ -53,7 +53,7 @@ def test_compare_upload(client, example_pair):
     assert res.status_code == 200
     assert "7</span> change" in res.text
     assert "Terminal T-102 / TID" in res.text
-    assert "sk_live_" not in res.text  # secrets never reach HTML
+    assert "gwsecret_" not in res.text  # secrets never reach HTML
     assert "••••••" in res.text
 
 
@@ -94,7 +94,7 @@ def test_export_json(client, example_pair):
     assert res.headers["content-disposition"].endswith('filename="change-report.json"')
     data = json.loads(res.text)
     assert data["summary"]["total"] == 7
-    assert "sk_live_" not in res.text
+    assert "gwsecret_" not in res.text
 
 
 def test_export_html(client, example_pair):
@@ -106,7 +106,7 @@ def test_export_html(client, example_pair):
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/html")
     assert "7</span> change" in res.text
-    assert "sk_live_" not in res.text
+    assert "gwsecret_" not in res.text
 
 
 def test_export_invalid_json(client):
