@@ -1,62 +1,92 @@
-"""Detection and masking of sensitive values.
+"""Detection and masking of potentially sensitive values.
 
-A value is sensitive when any *key* on its path (not the value itself) contains one of
-the configured fragments after normalization. Masking happens before a `Change` object is
-created, so raw secrets never reach templates, logs, exports or the browser.
+Detection is based purely on key names along the JSON path — the values themselves are
+never inspected, logged or echoed. Masking is applied *before* a value reaches templates,
+exports or any other output channel.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
 from typing import Any
 
-from app import settings
+MASK = "••••••"
 
-_NORMALIZE_RE = re.compile(r"[^a-z0-9]")
+# Single tokens that mark a key as sensitive wherever they occur (``access_token``,
+# ``dbPassword``, ``SECRET``).
+SENSITIVE_TOKENS: frozenset[str] = frozenset(
+    {
+        "password",
+        "passwd",
+        "pwd",
+        "secret",
+        "token",
+        "authorization",
+        "apikey",
+        "credential",
+        "credentials",
+        "cvv",
+        "cvc",
+    }
+)
+
+# Two-token compounds; ``key`` alone must stay usable as an identity key.
+SENSITIVE_COMPOUNDS: frozenset[str] = frozenset(
+    {
+        "api_key",
+        "private_key",
+        "secret_key",
+        "signing_key",
+        "encryption_key",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "auth_key",
+        "pin_code",
+        "card_pin",
+        "pin_block",
+    }
+)
+
+_CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
-def normalize_key(key: str) -> str:
-    return _NORMALIZE_RE.sub("", key.lower())
+def _tokens(key: str) -> list[str]:
+    spaced = _CAMEL_RE.sub("_", key)
+    return [t for t in re.split(r"[^a-zA-Z0-9]+", spaced.lower()) if t]
 
 
-class SensitiveDetector:
-    def __init__(self, fragments: Iterable[str] = settings.DEFAULT_SENSITIVE_KEYS) -> None:
-        self._fragments = tuple(sorted({normalize_key(f) for f in fragments if f}))
+def is_sensitive_key(key: str) -> bool:
+    tokens = _tokens(key)
+    if any(t in SENSITIVE_TOKENS for t in tokens):
+        return True
+    return any(f"{a}_{b}" in SENSITIVE_COMPOUNDS for a, b in zip(tokens, tokens[1:], strict=False))
 
-    def is_sensitive_key(self, key: str) -> bool:
-        norm = normalize_key(key)
-        return any(frag in norm for frag in self._fragments)
 
-    def path_is_sensitive(self, keys: Sequence[str]) -> bool:
-        return any(self.is_sensitive_key(k) for k in keys)
+def path_is_sensitive(keys: list[str]) -> bool:
+    """*keys* are the object keys along the path (array identities excluded)."""
+    return any(is_sensitive_key(k) for k in keys)
 
-    @staticmethod
-    def mask(value: Any) -> Any:
-        """Replace a value with the mask. `None` stays `None` so ADDED/REMOVED remain visible."""
-        if value is None:
-            return None
-        return settings.MASK
 
-    def mask_nested(self, value: Any) -> tuple[Any, bool]:
-        """Walk a composite value and mask every sensitive key inside it.
+def mask_value(value: Any, *, force: bool = False) -> Any:
+    """Return a copy of *value* with sensitive parts replaced by :data:`MASK`.
 
-        Needed when a whole object is added/removed/replaced: the change is reported at the
-        parent path, but secrets nested inside must still never leave the engine.
-        Returns (masked_copy, anything_was_masked).
-        """
-        if isinstance(value, dict):
-            out: dict[str, Any] = {}
-            hit = False
-            for key, inner in value.items():
-                if self.is_sensitive_key(key):
-                    out[key] = self.mask(inner)
-                    hit = hit or inner is not None
-                else:
-                    out[key], inner_hit = self.mask_nested(inner)
-                    hit = hit or inner_hit
-            return out, hit
-        if isinstance(value, list):
-            items = [self.mask_nested(v) for v in value]
-            return [v for v, _ in items], any(h for _, h in items)
-        return value, False
+    With ``force=True`` the whole value is masked (used when the path itself is sensitive).
+    Otherwise nested dict keys are inspected so that e.g. an added object carrying a
+    ``client_secret`` is exported with that field hidden.
+    """
+    if force:
+        return MASK
+    if isinstance(value, dict):
+        return {k: (MASK if is_sensitive_key(k) else mask_value(v)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [mask_value(v) for v in value]
+    return value
+
+
+def contains_sensitive(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(is_sensitive_key(k) or contains_sensitive(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(contains_sensitive(v) for v in value)
+    return False

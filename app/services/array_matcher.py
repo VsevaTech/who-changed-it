@@ -1,100 +1,162 @@
-"""Semantic matching of array elements.
+"""Semantic matching of array elements between two versions of a configuration.
 
-For arrays of objects we try to find an *identity key*: a key that is present in every
-element on both sides, holds a scalar (string/number) value and is unique within each
-array. Elements are then paired by that key regardless of their position.
+The core rule: never compare arrays by position when a *reliable* identity is available.
 
-If no such key exists we fall back to positional comparison and say so explicitly.
-No heuristics beyond that — a wrong match is worse than an honest positional diff.
+* Arrays of objects are matched by the first configurable identity key that is present in
+  **every** element on both sides, holds a scalar value and is **unique** within each side.
+* Arrays of scalars whose values are unique on each side are matched by value.
+* Everything else (mixed arrays, nested arrays, missing/duplicated keys) falls back to
+  positional comparison, and the caller is told so explicitly — we do not guess.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from app import settings
-from app.models.diff import MatchMode
+from app.models.diff import MatchStrategy
 
-Pair = tuple[Any | None, Any | None]  # (before_element, after_element); None = missing
+DEFAULT_IDENTITY_KEYS: tuple[str, ...] = (
+    "id",
+    "uuid",
+    "code",
+    "key",
+    "name",
+    "tid",
+    "terminal_id",
+    "company_id",
+    "location_id",
+)
+
+Scalar = str | int | Decimal | bool
 
 
-@dataclass(frozen=True)
-class MatchResult:
-    mode: MatchMode
-    identity_key: str | None
-    # Ordered list of (identity_value_or_index, before, after)
-    pairs: list[tuple[Any, Any | None, Any | None]] = field(default_factory=list)
+def _is_scalar(value: Any) -> bool:
+    return isinstance(value, str | int | Decimal | bool) and value is not None
 
 
-def _identity_value(value: Any) -> Any:
-    """Hashable, type-aware form of a scalar so `"1"` and `1` never collide."""
+def _scalar_key(value: Any) -> tuple[str, str]:
+    """Hashable, type-aware key so that ``"1"`` and ``1`` never collide."""
     if isinstance(value, bool):
-        return ("bool", value)
-    if isinstance(value, int | Decimal):
-        return ("num", Decimal(value))
+        return ("bool", str(value))
+    if isinstance(value, int):
+        return ("num", str(Decimal(value)))
+    if isinstance(value, Decimal):
+        return ("num", str(value.normalize()) if value != 0 else "0")
     return ("str", value)
 
 
-def _is_identity_candidate(key: str, elements: Sequence[dict[str, Any]]) -> bool:
-    seen: set[Any] = set()
-    for el in elements:
-        if key not in el:
-            return False
-        value = el[key]
-        if value is None or isinstance(value, bool | dict | list):
-            return False
-        ident = _identity_value(value)
-        if ident in seen:
-            return False
-        seen.add(ident)
-    return True
+@dataclass
+class MatchedPair:
+    identity: str | None  # e.g. "id=T2" or "0" for positional
+    before: Any
+    after: Any
+    before_index: int | None
+    after_index: int | None
+
+
+@dataclass
+class ArrayMatch:
+    strategy: MatchStrategy
+    identity_key: str | None
+    pairs: list[MatchedPair] = field(default_factory=list)
+    added: list[MatchedPair] = field(default_factory=list)
+    removed: list[MatchedPair] = field(default_factory=list)
 
 
 def find_identity_key(
-    before: Sequence[Any],
-    after: Sequence[Any],
-    candidates: Sequence[str] = settings.DEFAULT_IDENTITY_KEYS,
+    before: list[Any], after: list[Any], candidates: tuple[str, ...] = DEFAULT_IDENTITY_KEYS
 ) -> str | None:
-    """Return the first candidate key usable as identity for both arrays, else None."""
-    if not before and not after:
+    """Return the first candidate that is a reliable identity for both arrays, else ``None``."""
+    items = [*before, *after]
+    if not items or not all(isinstance(i, dict) and i for i in items):
         return None
-    if not all(isinstance(el, dict) for el in before):
-        return None
-    if not all(isinstance(el, dict) for el in after):
-        return None
+
     for key in candidates:
-        if _is_identity_candidate(key, before) and _is_identity_candidate(key, after):
+        if not all(key in item and _is_scalar(item[key]) for item in items):
+            continue
+        before_keys = [_scalar_key(i[key]) for i in before]
+        after_keys = [_scalar_key(i[key]) for i in after]
+        if len(set(before_keys)) == len(before_keys) and len(set(after_keys)) == len(after_keys):
             return key
     return None
 
 
+def _format_identity_value(value: Scalar) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    return str(value)
+
+
 def match_arrays(
-    before: Sequence[Any],
-    after: Sequence[Any],
-    candidates: Sequence[str] = settings.DEFAULT_IDENTITY_KEYS,
-) -> MatchResult:
+    before: list[Any], after: list[Any], candidates: tuple[str, ...] = DEFAULT_IDENTITY_KEYS
+) -> ArrayMatch:
+    """Pair the elements of *before* and *after* using the most reliable strategy available."""
     key = find_identity_key(before, after, candidates)
-    if key is None:
-        pairs: list[tuple[Any, Any | None, Any | None]] = []
-        for i in range(max(len(before), len(after))):
-            b = before[i] if i < len(before) else None
-            a = after[i] if i < len(after) else None
-            pairs.append((i, b, a))
-        return MatchResult(mode=MatchMode.POSITION, identity_key=None, pairs=pairs)
+    if key is not None:
+        return _match_by_identity(before, after, key)
 
-    after_by_id: dict[Any, Any] = {_identity_value(el[key]): el for el in after}
-    before_ids = {_identity_value(el[key]) for el in before}
+    if before or after:
+        all_scalars = all(_is_scalar(x) for x in [*before, *after])
+        if all_scalars:
+            b_keys = [_scalar_key(x) for x in before]
+            a_keys = [_scalar_key(x) for x in after]
+            if len(set(b_keys)) == len(b_keys) and len(set(a_keys)) == len(a_keys):
+                return _match_by_value(before, after)
 
-    pairs = []
-    # Elements present before (kept or removed), in "before" order.
-    for el in before:
-        ident = _identity_value(el[key])
-        pairs.append((el[key], el, after_by_id.get(ident)))
-    # Newly added elements, in "after" order.
-    for el in after:
-        if _identity_value(el[key]) not in before_ids:
-            pairs.append((el[key], None, el))
-    return MatchResult(mode=MatchMode.IDENTITY, identity_key=key, pairs=pairs)
+    return _match_by_position(before, after)
+
+
+def _match_by_identity(before: list[dict], after: list[dict], key: str) -> ArrayMatch:
+    result = ArrayMatch(strategy=MatchStrategy.IDENTITY, identity_key=key)
+    after_by_key = {_scalar_key(item[key]): (idx, item) for idx, item in enumerate(after)}
+    seen: set[tuple[str, str]] = set()
+
+    for b_idx, b_item in enumerate(before):
+        k = _scalar_key(b_item[key])
+        identity = f"{key}={_format_identity_value(b_item[key])}"
+        if k in after_by_key:
+            a_idx, a_item = after_by_key[k]
+            seen.add(k)
+            result.pairs.append(MatchedPair(identity, b_item, a_item, b_idx, a_idx))
+        else:
+            result.removed.append(MatchedPair(identity, b_item, None, b_idx, None))
+
+    for a_idx, a_item in enumerate(after):
+        k = _scalar_key(a_item[key])
+        if k not in seen:
+            identity = f"{key}={_format_identity_value(a_item[key])}"
+            result.added.append(MatchedPair(identity, None, a_item, None, a_idx))
+    return result
+
+
+def _match_by_value(before: list[Scalar], after: list[Scalar]) -> ArrayMatch:
+    result = ArrayMatch(strategy=MatchStrategy.VALUE, identity_key=None)
+    after_keys = {_scalar_key(x): idx for idx, x in enumerate(after)}
+    before_keys = {_scalar_key(x): idx for idx, x in enumerate(before)}
+
+    for b_idx, x in enumerate(before):
+        k = _scalar_key(x)
+        if k in after_keys:
+            result.pairs.append(MatchedPair(None, x, x, b_idx, after_keys[k]))
+        else:
+            result.removed.append(MatchedPair(None, x, None, b_idx, None))
+    for a_idx, x in enumerate(after):
+        if _scalar_key(x) not in before_keys:
+            result.added.append(MatchedPair(None, None, x, None, a_idx))
+    return result
+
+
+def _match_by_position(before: list[Any], after: list[Any]) -> ArrayMatch:
+    result = ArrayMatch(strategy=MatchStrategy.POSITION, identity_key=None)
+    common = min(len(before), len(after))
+    for i in range(common):
+        result.pairs.append(MatchedPair(str(i), before[i], after[i], i, i))
+    for i in range(common, len(before)):
+        result.removed.append(MatchedPair(str(i), before[i], None, i, None))
+    for i in range(common, len(after)):
+        result.added.append(MatchedPair(str(i), None, after[i], None, i))
+    return result

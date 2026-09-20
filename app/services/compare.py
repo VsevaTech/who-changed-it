@@ -1,32 +1,27 @@
-"""Use-case layer: raw input -> DiffResult. Keeps FastAPI routes free of business logic."""
+"""Use-case layer: raw inputs in, :class:`DiffReport` out. Keeps routes thin."""
 
 from __future__ import annotations
 
-from app.models.diff import DiffResult
-from app.services.diff_engine import DiffOptions, diff_json
-from app.services.parser import JsonParseError, parse_json
+from app.models.diff import DiffReport
+from app.services.array_matcher import DEFAULT_IDENTITY_KEYS
+from app.services.diff_engine import semantic_diff
+from app.services.parser import parse_json
 
 
-class CompareError(ValueError):
-    """User-facing error (safe to display); carries which side failed."""
+def compare_texts(
+    before_text: str | bytes,
+    after_text: str | bytes,
+    identity_keys: tuple[str, ...] = DEFAULT_IDENTITY_KEYS,
+) -> DiffReport:
+    """Parse both inputs and return the semantic diff. Raises ``JsonInputError``."""
+    before = parse_json(before_text, side="Before")
+    after = parse_json(after_text, side="After")
+    return semantic_diff(before, after, identity_keys)
 
-    def __init__(self, side: str, message: str) -> None:
-        super().__init__(message)
-        self.side = side
-        self.message = message
 
-
-def compare_documents(
-    before_raw: str | bytes,
-    after_raw: str | bytes,
-    options: DiffOptions | None = None,
-) -> DiffResult:
-    try:
-        before = parse_json(before_raw, label="BEFORE")
-    except JsonParseError as exc:
-        raise CompareError("before", str(exc)) from exc
-    try:
-        after = parse_json(after_raw, label="AFTER")
-    except JsonParseError as exc:
-        raise CompareError("after", str(exc)) from exc
-    return diff_json(before, after, options)
+def parse_identity_keys(raw: str | None) -> tuple[str, ...]:
+    """``"id, code, sku"`` → ``("id", "code", "sku")``; empty → defaults."""
+    if not raw or not raw.strip():
+        return DEFAULT_IDENTITY_KEYS
+    keys = tuple(k.strip() for k in raw.split(",") if k.strip())
+    return keys or DEFAULT_IDENTITY_KEYS

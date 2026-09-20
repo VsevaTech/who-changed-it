@@ -5,92 +5,75 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }} — Who Changed It?</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#6b7280; --line:#e5e7eb;
-          --changed:#b45309; --added:#15803d; --removed:#b91c1c; --sens:#6d28d9; }
-  body { margin:0; font:15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-         background:var(--bg); color:var(--fg); }
-  main { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
-  h1 { margin:0 0 4px; font-size:24px; } .meta { color:var(--muted); font-size:13px; margin-bottom:24px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:16px; }
-  .summary { display:flex; gap:24px; align-items:baseline; flex-wrap:wrap; }
-  .summary .num { font-size:32px; font-weight:700; }
-  .count b { font-weight:700; } .count { margin-right:16px; }
-  .count-changed b { color:var(--changed);} .count-added b{color:var(--added);} .count-removed b{color:var(--removed);}
-  h3 { margin:0 0 8px; font-size:16px; } .group-count { color:var(--muted); font-weight:400; font-size:13px; }
-  ul.changes { list-style:none; margin:0; padding:0; }
-  li.change { padding:12px 0; border-top:1px solid var(--line); }
-  li.change:first-child { border-top:0; }
-  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
-           padding:2px 8px; border-radius:999px; color:#fff; margin-right:8px; }
-  .badge-changed{background:var(--changed);} .badge-added{background:var(--added);} .badge-removed{background:var(--removed);}
-  .display-path { font-weight:600; }
-  .pill { font-size:11px; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:8px; }
-  .pill-sensitive { color:var(--sens); border-color:var(--sens); }
-  code.raw-path { display:block; color:var(--muted); font-size:12px; margin:2px 0 6px; }
-  .values { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:14px; }
-  .values .old { color:var(--removed); } .values .new { color:var(--added); } .arrow { margin:0 8px; color:var(--muted); }
-  pre { background:var(--bg); padding:8px 10px; border-radius:6px; overflow:auto; font-size:12px; max-height:240px; }
-  .equivalent { border-color:#86efac; background:#f0fdf4; }
-  .notice { border-color:#fcd34d; background:#fffbeb; }
-  footer { color:var(--muted); font-size:12px; margin-top:32px; }
+  :root { --bg:#ffffff; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#f8fafc;
+          --changed:#2563eb; --added:#059669; --removed:#dc2626; --old:#fee2e2; --new:#dcfce7; }
+  body { margin:0; font:15px/1.5 -apple-system, "Segoe UI", Roboto, Inter, sans-serif; color:var(--fg); background:var(--bg); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .meta { color: var(--muted); margin-bottom: 24px; }
+  .summary { display:flex; gap:24px; align-items:baseline; flex-wrap:wrap; padding:16px 20px; border:1px solid var(--line); border-radius:12px; background:var(--card); margin-bottom:24px; }
+  .summary .total { font-size: 22px; font-weight: 700; }
+  .count b { font-size:18px; margin-right:4px; }
+  .count.changed b { color: var(--changed);} .count.added b { color: var(--added);} .count.removed b { color: var(--removed);}
+  h2 { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; }
+  .change { border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-bottom:10px; background:#fff; }
+  .head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .head h4 { margin:0; font-size:16px; font-weight:600; }
+  .badge { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:999px; color:#fff; }
+  .badge.changed { background: var(--changed);} .badge.added { background: var(--added);} .badge.removed { background: var(--removed);}
+  .pill { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:1px 8px; }
+  code.path { display:block; color:var(--muted); font-size:12px; margin:4px 0 8px; }
+  .values { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+  .val { padding:2px 8px; border-radius:6px; white-space:pre-wrap; word-break:break-word; margin:0; }
+  .val.old { background: var(--old); } .val.new { background: var(--new); }
+  .arrow { color: var(--muted); }
+  .equivalent { text-align:center; padding:40px 20px; border:1px solid var(--line); border-radius:12px; }
+  .equivalent .check { font-size:40px; color: var(--added); }
+  .notes { color: var(--muted); font-size: 13px; }
+  footer { margin-top:40px; color:var(--muted); font-size:12px; }
 </style>
 </head>
 <body>
-<main>
+<div class="wrap">
   <h1>{{ title }}</h1>
-  <div class="meta">Generated {{ generated_at }} by who-changed-it v{{ version }} · deterministic semantic diff · sensitive values masked</div>
+  <div class="meta">Generated {{ generated_at }} by Who Changed It? · sensitive values are masked · deterministic semantic diff</div>
 
-  {% set s = result.summary %}
-  {% if s.total == 0 %}
-  <div class="card equivalent"><h2>✓ Configurations are equivalent</h2><p>No semantic changes detected.</p></div>
+  {% if report.summary.total == 0 %}
+    <div class="equivalent"><div class="check">✓</div><h2 style="text-transform:none;color:var(--fg);font-size:20px">Configurations are equivalent</h2><p>No semantic changes detected.</p></div>
   {% else %}
-  <div class="card summary">
-    <div><span class="num">{{ s.total }}</span> change{{ "s" if s.total != 1 }}</div>
-    <div>
-      <span class="count count-changed"><b>{{ s.changed }}</b> Changed</span>
-      <span class="count count-added"><b>{{ s.added }}</b> Added</span>
-      <span class="count count-removed"><b>{{ s.removed }}</b> Removed</span>
+  <div class="summary">
+    <div class="total">{{ report.summary.total }} change{{ '' if report.summary.total == 1 else 's' }}</div>
+    <span class="count changed"><b>{{ report.summary.changed }}</b>Changed</span>
+    <span class="count added"><b>{{ report.summary.added }}</b>Added</span>
+    <span class="count removed"><b>{{ report.summary.removed }}</b>Removed</span>
+  </div>
+  {% if report.notes %}<ul class="notes">{% for n in report.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+
+  {% for group_name, changes in groups %}
+  <h2>{{ group_name }} ({{ changes | length }})</h2>
+  {% for change in changes %}
+  <div class="change">
+    <div class="head">
+      <span class="badge {{ change.type.value }}">{{ change.type.value }}</span>
+      <h4>{{ change.display_path }}</h4>
+      {% if change.sensitive %}<span class="pill">masked</span>{% endif %}
+      {% if change.note %}<span class="pill">{{ change.note }}</span>{% endif %}
+    </div>
+    <code class="path">{{ change.path }}</code>
+    <div class="values">
+      {% if change.type.value == 'changed' %}
+        <pre class="val old">{{ format_value(change.old_value) }}</pre><span class="arrow">→</span><pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% elif change.type.value == 'added' %}
+        <pre class="val new">{{ format_value(change.new_value) }}</pre>
+      {% else %}
+        <pre class="val old">{{ format_value(change.old_value) }}</pre>
+      {% endif %}
     </div>
   </div>
-  {% if result.positional_arrays %}
-  <div class="card notice"><strong>Array matched by position</strong> — no reliable identity key for:
-    {% for p in result.positional_arrays %}<code>{{ p }}</code>{{ ", " if not loop.last }}{% endfor %}.</div>
-  {% endif %}
-  {% for group, changes in result.groups %}
-  <section class="card">
-    <h3>{{ group }} <span class="group-count">{{ changes | length }}</span></h3>
-    <ul class="changes">
-    {% for change in changes %}
-      <li class="change">
-        <div>
-          <span class="badge badge-{{ change.type.value }}">{{ change.type.value }}</span>
-          <span class="display-path">{{ change.display_path }}</span>
-          {% if change.sensitive %}<span class="pill pill-sensitive">masked</span>{% endif %}
-          {% if change.note %}<span class="pill">{{ change.note }}</span>{% endif %}
-        </div>
-        <code class="raw-path">{{ change.path }}</code>
-        <div class="values">
-          {% if change.type.value == "changed" %}
-            <span class="old">{{ change.old_value | render_value }}</span><span class="arrow">→</span><span class="new">{{ change.new_value | render_value }}</span>
-          {% elif change.type.value == "added" %}
-            Added: <span class="new">{{ change.new_value | render_value }}</span>
-          {% else %}
-            Removed: <span class="old">{{ change.old_value | render_value }}</span>
-          {% endif %}
-        </div>
-        {% if (change.old_value is mapping or (change.old_value is iterable and change.old_value is not string)) and change.old_value is not none %}
-          <pre>{{ change.old_value | json_text }}</pre>
-        {% endif %}
-        {% if (change.new_value is mapping or (change.new_value is iterable and change.new_value is not string)) and change.new_value is not none %}
-          <pre>{{ change.new_value | json_text }}</pre>
-        {% endif %}
-      </li>
-    {% endfor %}
-    </ul>
-  </section>
+  {% endfor %}
   {% endfor %}
   {% endif %}
-  <footer>This report describes semantic differences between two JSON documents. It is not a security, audit or compliance record.</footer>
-</main>
+  <footer>This report lists configuration differences only. It is not a security, audit or compliance record.</footer>
+</div>
 </body>
 </html>

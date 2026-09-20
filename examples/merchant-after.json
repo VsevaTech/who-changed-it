@@ -1,201 +1,200 @@
 {
+  "schema_version": 3,
+  "metadata": {
+    "updated_by": "ops@fortis.example",
+    "updated_at": "2026-09-18T14:02:11Z",
+    "revision": 41
+  },
   "company": {
-    "trade_name": "Al Noor Electronics",
     "legal_name": "Al Noor Trading LLC",
-    "company_id": "CMP-40021",
+    "id": "cmp_48213",
+    "trade_name": "Al Noor Cafe",
     "status": "active",
-    "mcc": "5732",
-    "trn": "100234567800003",
-    "timezone": "Asia/Dubai",
-    "currency": "AED",
     "country": "AE",
-    "address": {
-      "country": "AE",
-      "postal_code": "",
-      "emirate": "Dubai",
-      "city": "Dubai",
-      "line2": "Bur Dubai",
-      "line1": "Shop 12, Al Fahidi Street"
-    },
-    "contacts": {
-      "support_phone": "+97142223344",
-      "owner_phone": "+971501234567",
-      "owner_email": "faisal@alnoor.example",
-      "owner_name": "Faisal Al Mansoori"
-    },
-    "onboarding": {
-      "kyc_level": "full",
-      "completed_at": "2025-11-03T09:14:22Z",
-      "channel": "self_service"
+    "currency": "AED",
+    "timezone": "Asia/Dubai",
+    "trn": "100234567800003",
+    "mcc": "5812",
+    "onboarded_at": "2025-11-03T09:14:00Z",
+    "contact": {
+      "phone": "+971501234567",
+      "email": "owner@alnoor.example",
+      "address": {
+        "city": "Dubai",
+        "line1": "Shop 12, Marina Walk",
+        "emirate": "Dubai",
+        "postal_code": "00000"
+      }
     }
   },
-  "schema_version": "2.4",
+  "payment_settings": {
+    "timeout_seconds": 10,
+    "capture_mode": "auto",
+    "allow_partial_refunds": true,
+    "max_refund_days": 90,
+    "tip_enabled": true,
+    "tip_presets_percent": [5, 10, 15],
+    "surcharge": {
+      "percent": 0,
+      "enabled": false
+    },
+    "card_schemes": ["mastercard", "visa", "unionpay"],
+    "wallets": {
+      "google_pay": true,
+      "apple_pay": true,
+      "samsung_pay": false
+    },
+    "limits": {
+      "min_amount": 1.0,
+      "max_amount": 25000.00,
+      "daily_volume": 150000.00
+    },
+    "acquirer": {
+      "code": "MSH",
+      "merchant_id": "000123456789",
+      "settlement_currency": "AED",
+      "settlement_delay_days": 1
+    },
+    "risk": {
+      "velocity_limit_per_minute": 20,
+      "block_on_cvv_mismatch": true,
+      "three_ds_mode": "adaptive"
+    }
+  },
+  "billing": {
+    "plan": "standard",
+    "billing_cycle": "monthly",
+    "billing_day": 1,
+    "vat_percent": 5,
+    "invoice_email": "finance@alnoor.example",
+    "billing_email": "billing@alnoor.example",
+    "payment_method": "card",
+    "auto_charge": true,
+    "grace_period_days": 7,
+    "fees": {
+      "monthly_fee": 99.00,
+      "transaction_fee_percent": 1.75,
+      "transaction_fee_fixed": 0.50
+    }
+  },
+  "features": {
+    "tips": true,
+    "loyalty": true,
+    "qr_payments": true,
+    "recurring_payments": false,
+    "invoicing": true,
+    "multi_currency": false,
+    "offline_mode": false,
+    "receipts": {
+      "email": true,
+      "sms": true,
+      "print": true
+    }
+  },
+  "integrations": {
+    "erp": {
+      "provider": "zoho",
+      "enabled": true,
+      "sync_interval_minutes": 15,
+      "client_id": "zoho-app-8842",
+      "client_secret": "zsk_live_9c1d3e5f7a2b4c6d8e0f",
+      "webhook_url": "https://erp.alnoor.example/webhooks/pos"
+    },
+    "accounting_export": {
+      "format": "csv",
+      "schedule": "daily"
+    }
+  },
+  "locations": [
+    {
+      "id": "loc_002",
+      "name": "JLT Cluster D",
+      "address": "Unit 4, Cluster D, JLT, Dubai",
+      "opening_hours": {
+        "mon_fri": "07:30-22:00",
+        "sat_sun": "09:00-22:00"
+      },
+      "active": true
+    },
+    {
+      "id": "loc_001",
+      "name": "Marina Walk",
+      "address": "Shop 12, Marina Walk, Dubai",
+      "opening_hours": {
+        "mon_fri": "07:00-23:00",
+        "sat_sun": "08:00-01:00"
+      },
+      "active": true
+    }
+  ],
   "terminals": [
     {
       "id": "T-103",
       "tid": "887232",
-      "serial": "PAX-A77-00998877",
+      "location_id": "loc_002",
       "model": "PAX A77",
-      "location_id": "LOC-002",
+      "serial": "A77-00998877",
+      "firmware": "2.3.9",
       "status": "active",
-      "firmware": "3.12.0",
-      "connectivity": ["4g"],
-      "settings": {
-        "language": "ar",
-        "print_receipts": false,
-        "settle_time": "23:45",
-        "auto_settle": true
-      }
-    },
-    {
-      "id": "T-102",
-      "tid": "887245",
-      "serial": "PAX-A920-00112234",
-      "model": "PAX A920 Pro",
-      "location_id": "LOC-001",
-      "status": "active",
-      "firmware": "3.14.2",
-      "connectivity": ["wifi", "4g"],
-      "settings": {
-        "language": "en",
-        "print_receipts": true,
-        "settle_time": "23:30",
-        "auto_settle": true
+      "features": {
+        "contactless": true,
+        "pin_on_glass": false,
+        "printer": false
       }
     },
     {
       "id": "T-101",
       "tid": "887230",
-      "serial": "PAX-A920-00112233",
-      "model": "PAX A920 Pro",
-      "location_id": "LOC-001",
+      "location_id": "loc_001",
+      "model": "PAX A920",
+      "serial": "A920-00112233",
+      "firmware": "2.4.1",
       "status": "active",
-      "firmware": "3.14.2",
-      "connectivity": ["wifi", "4g"],
-      "settings": {
-        "language": "en",
-        "print_receipts": true,
-        "settle_time": "23:30",
-        "auto_settle": true
+      "features": {
+        "printer": true,
+        "contactless": true,
+        "pin_on_glass": true
       }
     },
     {
       "id": "T-105",
       "tid": "887250",
-      "serial": "PAX-A920-00112299",
+      "location_id": "loc_002",
       "model": "PAX A920 Pro",
-      "location_id": "LOC-002",
+      "serial": "A920P-00445566",
+      "firmware": "2.5.0",
       "status": "active",
-      "firmware": "3.14.2",
-      "connectivity": ["wifi", "4g"],
-      "settings": {
-        "language": "en",
-        "print_receipts": true,
-        "settle_time": "23:45",
-        "auto_settle": true
+      "features": {
+        "contactless": true,
+        "pin_on_glass": true,
+        "printer": true
+      }
+    },
+    {
+      "id": "T-102",
+      "tid": "887245",
+      "location_id": "loc_001",
+      "model": "PAX A920",
+      "serial": "A920-00112244",
+      "firmware": "2.4.1",
+      "status": "active",
+      "features": {
+        "contactless": true,
+        "pin_on_glass": true,
+        "printer": true
       }
     }
   ],
-  "locations": [
-    {
-      "location_id": "LOC-002",
-      "name": "Deira Kiosk",
-      "type": "kiosk",
-      "address": "Kiosk K7, Al Ghurair Centre, Deira",
-      "opening_hours": {
-        "sun": "10:00-22:00",
-        "sat": "10:00-00:00",
-        "mon_fri": "10:00-22:00"
-      },
-      "active": true
+  "notifications": {
+    "chargeback_alert": {
+      "enabled": true,
+      "channels": ["sms", "email"],
+      "recipients": ["owner@alnoor.example"]
     },
-    {
-      "location_id": "LOC-001",
-      "name": "Al Fahidi Main Store",
-      "type": "retail",
-      "address": "Shop 12, Al Fahidi Street, Bur Dubai",
-      "opening_hours": {
-        "sun": "10:00-21:00",
-        "sat": "10:00-23:00",
-        "mon_fri": "09:00-22:00"
-      },
-      "active": true
+    "settlement_report": {
+      "enabled": true,
+      "channels": ["email"],
+      "recipients": ["finance@alnoor.example"]
     }
-  ],
-  "features": {
-    "beta": {
-      "ai_insights": false,
-      "new_checkout_ui": false
-    },
-    "e_invoicing": false,
-    "qr_payments": true,
-    "split_bill": true,
-    "table_management": false,
-    "employee_pins": true,
-    "offline_mode": true,
-    "multi_currency": false,
-    "gift_cards": false,
-    "loyalty": false,
-    "inventory": true
-  },
-  "billing": {
-    "line_items": [
-      {"code": "SMS_PACK", "amount": "25.00", "description": "SMS receipts pack (500)"},
-      {"code": "TERM_RENT", "amount": "45.00", "quantity": 4, "description": "Terminal rental"},
-      {"code": "SUB_BUSINESS", "amount": "299.00", "description": "Business plan subscription"}
-    ],
-    "contact": {
-      "phone": "+97142223355",
-      "name": "Accounts Department",
-      "email": "billing@alnoor.example"
-    },
-    "vat_percent": "5.00",
-    "auto_pay": true,
-    "payment_method": "card",
-    "next_invoice_date": "2026-10-01",
-    "billing_cycle": "monthly",
-    "plan": "business"
-  },
-  "payment_settings": {
-    "gateway": {
-      "webhook_url": "https://api.alnoor.example/webhooks/payments",
-      "client_secret": "gwsecret_9d1c7e4b2a6f8e0d3c5b7a9f1e2d4c6b",
-      "client_id": "alnoor-pos-prod",
-      "environment": "production",
-      "merchant_id": "MID-0091223",
-      "provider": "fortis-gateway"
-    },
-    "surcharge": {
-      "percent": "0.00",
-      "enabled": false
-    },
-    "wallets": {
-      "samsung_pay": false,
-      "google_pay": true,
-      "apple_pay": true
-    },
-    "card_schemes": [
-      {"code": "UNIONPAY", "contactless": false, "enabled": true},
-      {"code": "AMEX", "contactless": false, "enabled": false},
-      {"code": "MASTERCARD", "contactless": true, "enabled": true},
-      {"code": "VISA", "contactless": true, "enabled": true}
-    ],
-    "receipt": {
-      "footer_text": "Thank you for shopping at Al Noor",
-      "sms_receipt": false,
-      "email_receipt": true,
-      "print_customer_copy": true,
-      "print_merchant_copy": true
-    },
-    "tip_presets": [5, 10, 15],
-    "tip_enabled": true,
-    "max_amount": "50000.00",
-    "min_amount": "1.00",
-    "refund_window_days": 14,
-    "allow_refunds": true,
-    "allow_partial_capture": false,
-    "capture_mode": "auto",
-    "retry_attempts": 2,
-    "timeout": 10
   }
 }
