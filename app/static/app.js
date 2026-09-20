@@ -1,111 +1,125 @@
-/* Who Changed It? — minimal client. No dependencies, no storage, no analytics. */
+/* Minimal vanilla JS: submit the form via fetch, swap the result HTML,
+   client-side filters/search, and export via the same form data.
+   Inputs live only in the form/JS memory — never in hidden fields or storage. */
 (function () {
   "use strict";
 
   const form = document.getElementById("compare-form");
-  const results = document.getElementById("results");
+  const result = document.getElementById("result");
+  const status = document.getElementById("status");
   const compareBtn = document.getElementById("compare-btn");
   let mode = "paste";
 
-  // ---- mode switch -------------------------------------------------------------------
+  // ---- tabs -------------------------------------------------------------------
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       mode = tab.dataset.mode;
-      document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-      document.getElementById("mode-paste").classList.toggle("hidden", mode !== "paste");
-      document.getElementById("mode-upload").classList.toggle("hidden", mode !== "upload");
+      document.querySelectorAll(".tab").forEach((t) => {
+        const active = t === tab;
+        t.classList.toggle("active", active);
+        t.setAttribute("aria-selected", String(active));
+      });
+      document.querySelector(".mode-paste").classList.toggle("hidden", mode !== "paste");
+      document.querySelector(".mode-upload").classList.toggle("hidden", mode !== "upload");
     });
   });
 
-  // ---- file name display -------------------------------------------------------------
-  document.querySelectorAll('input[type="file"]').forEach((input) => {
-    input.addEventListener("change", () => {
-      const label = document.querySelector(`.file-name[data-for="${input.id}"]`);
-      const file = input.files && input.files[0];
-      label.textContent = file ? `${file.name} (${Math.ceil(file.size / 1024)} KB)` : "Upload JSON";
-      input.closest(".drop").classList.toggle("has-file", !!file);
-    });
-  });
-
-  // ---- submit ------------------------------------------------------------------------
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const data = new FormData();
-    data.append("identity_keys", form.elements.identity_keys.value || "");
+  // ---- build form data for the active mode only ---------------------------------
+  function buildFormData() {
+    const fd = new FormData();
     if (mode === "paste") {
-      data.append("before_text", form.elements.before_text.value);
-      data.append("after_text", form.elements.after_text.value);
+      fd.append("before_text", document.getElementById("before_text").value);
+      fd.append("after_text", document.getElementById("after_text").value);
     } else {
-      const b = form.elements.before_file.files[0];
-      const a = form.elements.after_file.files[0];
-      if (b) data.append("before_file", b);
-      if (a) data.append("after_file", a);
+      const b = document.getElementById("before_file").files[0];
+      const a = document.getElementById("after_file").files[0];
+      if (b) fd.append("before_file", b);
+      if (a) fd.append("after_file", a);
     }
+    return fd;
+  }
+
+  // ---- compare ----------------------------------------------------------------
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
     compareBtn.disabled = true;
-    compareBtn.textContent = "Comparing…";
+    status.textContent = "Comparing…";
     try {
-      const response = await fetch("/compare", { method: "POST", body: data });
-      results.innerHTML = await response.text();
-      wireResults();
-      results.scrollIntoView({ behavior: "smooth", block: "start" });
+      const res = await fetch("/compare", { method: "POST", body: buildFormData() });
+      result.innerHTML = await res.text();
+      status.textContent = "";
+      wireResult();
+      result.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err) {
-      results.innerHTML =
-        '<div class="panel error" role="alert"><h2>Request failed</h2><p>The server could not be reached.</p></div>';
+      status.textContent = "Request failed. Is the server running?";
     } finally {
       compareBtn.disabled = false;
-      compareBtn.textContent = "Compare configurations";
     }
   });
 
-  // ---- demo / clear ------------------------------------------------------------------
-  document.getElementById("load-demo").addEventListener("click", async () => {
-    const [b, a] = await Promise.all([fetch("/demo/before"), fetch("/demo/after")]);
-    form.elements.before_text.value = await b.text();
-    form.elements.after_text.value = await a.text();
-    document.querySelector('.tab[data-mode="paste"]').click();
-  });
-  document.getElementById("clear").addEventListener("click", () => {
-    form.reset();
-    document.querySelectorAll(".file-name").forEach((l) => (l.textContent = "Upload JSON"));
-    document.querySelectorAll(".drop").forEach((d) => d.classList.remove("has-file"));
-    results.innerHTML = "";
-  });
-
-  // ---- filters + search (client-side, on rendered rows) --------------------------------
-  function wireResults() {
-    const panel = document.getElementById("results-panel");
-    if (!panel) return;
-    const filterButtons = panel.querySelectorAll(".filter");
-    const search = panel.querySelector("#search");
-    const empty = panel.querySelector("#empty-filter");
-    let activeFilter = "all";
-
-    function apply() {
-      const q = (search && search.value.trim().toLowerCase()) || "";
-      let visible = 0;
-      panel.querySelectorAll(".change").forEach((row) => {
-        const okType = activeFilter === "all" || row.dataset.type === activeFilter;
-        const okSearch = !q || row.dataset.search.includes(q);
-        const show = okType && okSearch;
-        row.classList.toggle("hidden", !show);
-        if (show) visible++;
-      });
-      panel.querySelectorAll(".group").forEach((group) => {
-        const shown = group.querySelectorAll(".change:not(.hidden)").length;
-        group.classList.toggle("hidden", shown === 0);
-        const counter = group.querySelector(".group-count");
-        if (counter) counter.textContent = String(shown);
-      });
-      if (empty) empty.classList.toggle("hidden", visible !== 0);
+  // ---- export -----------------------------------------------------------------
+  async function download(kind) {
+    const res = await fetch("/export/" + kind, { method: "POST", body: buildFormData() });
+    if (!res.ok) {
+      status.textContent = "Export failed: " + (await res.text());
+      return;
     }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "change-report." + kind;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
-    filterButtons.forEach((btn) => {
+  // ---- filters + search ---------------------------------------------------------
+  function applyFilters() {
+    const activeFilter = result.querySelector(".filter.active");
+    const type = activeFilter ? activeFilter.dataset.filter : "all";
+    const search = result.querySelector("#search");
+    const q = search ? search.value.trim().toLowerCase() : "";
+    let visible = 0;
+    result.querySelectorAll("li.change").forEach((li) => {
+      const okType = type === "all" || li.dataset.type === type;
+      const okSearch = !q || li.dataset.search.includes(q);
+      const show = okType && okSearch;
+      li.classList.toggle("hidden", !show);
+      if (show) visible++;
+    });
+    result.querySelectorAll("section.group").forEach((sec) => {
+      const any = sec.querySelector("li.change:not(.hidden)");
+      sec.classList.toggle("hidden", !any);
+    });
+    const empty = result.querySelector("#empty-filter");
+    if (empty) empty.classList.toggle("hidden", visible !== 0);
+  }
+
+  function wireResult() {
+    result.querySelectorAll(".filter").forEach((btn) => {
       btn.addEventListener("click", () => {
-        activeFilter = btn.dataset.filter;
-        filterButtons.forEach((b) => b.classList.toggle("active", b === btn));
-        apply();
+        result.querySelectorAll(".filter").forEach((b) => b.classList.toggle("active", b === btn));
+        applyFilters();
       });
     });
-    if (search) search.addEventListener("input", apply);
+    const search = result.querySelector("#search");
+    if (search) search.addEventListener("input", applyFilters);
+    result.querySelectorAll("[data-export]").forEach((btn) => {
+      btn.addEventListener("click", () => download(btn.dataset.export));
+    });
   }
+
+  // ---- example loader -------------------------------------------------------------
+  document.getElementById("load-example").addEventListener("click", async () => {
+    const [b, a] = await Promise.all([
+      fetch("/examples/merchant-before.json").then((r) => r.text()),
+      fetch("/examples/merchant-after.json").then((r) => r.text()),
+    ]);
+    document.querySelector('.tab[data-mode="paste"]').click();
+    document.getElementById("before_text").value = b;
+    document.getElementById("after_text").value = a;
+    status.textContent = "Example loaded — press Compare.";
+  });
 })();
