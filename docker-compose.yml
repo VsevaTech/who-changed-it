@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    image: who-changed-it:local
+    container_name: who-changed-it
+    ports:
+      - "8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped

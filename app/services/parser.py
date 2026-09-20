@@ -1,32 +1,23 @@
-"""JSON parsing with friendly errors, size limits and Decimal-safe numbers.
-
-Floats are parsed as :class:`decimal.Decimal` so that potentially financial values
-(``12.50``, ``0.1``) are never rounded through binary floating point. Integers stay ``int``.
-"""
+"""Safe JSON parsing with size limits and Decimal-preserving numbers."""
 
 from __future__ import annotations
 
 import json
-import os
 from decimal import Decimal
 from typing import Any
 
-DEFAULT_MAX_BYTES = int(os.environ.get("WCI_MAX_INPUT_BYTES", str(2 * 1024 * 1024)))
-MAX_DEPTH = int(os.environ.get("WCI_MAX_DEPTH", "200"))
+from app import settings
+
+JsonValue = None | bool | int | Decimal | str | list[Any] | dict[str, Any]
 
 
-class JsonInputError(ValueError):
-    """Raised when an input cannot be used for comparison. Message is safe to show to users."""
-
-    def __init__(self, side: str, message: str):
-        self.side = side
-        super().__init__(f"{side}: {message}")
-        self.user_message = message
+class JsonParseError(ValueError):
+    """Raised when input cannot be accepted. The message is safe to show to users."""
 
 
 def _check_depth(value: Any, depth: int = 0) -> None:
-    if depth > MAX_DEPTH:
-        raise ValueError(f"JSON is nested deeper than {MAX_DEPTH} levels")
+    if depth > settings.MAX_DEPTH:
+        raise JsonParseError(f"JSON is nested deeper than {settings.MAX_DEPTH} levels")
     if isinstance(value, dict):
         for v in value.values():
             _check_depth(v, depth + 1)
@@ -35,41 +26,58 @@ def _check_depth(value: Any, depth: int = 0) -> None:
             _check_depth(v, depth + 1)
 
 
-def parse_json(text: str | bytes, *, side: str = "input", max_bytes: int | None = None) -> Any:
-    """Parse *text* into Python data.
+def parse_json(raw: str | bytes, *, label: str = "JSON") -> JsonValue:
+    """Parse a JSON document.
 
-    * ``null`` is a valid document and yields ``None``.
-    * Floats become ``Decimal``; integers stay ``int``; booleans stay ``bool``.
-    * Raises :class:`JsonInputError` with a human-readable message on any problem.
+    * Rejects documents larger than `settings.MAX_JSON_BYTES`.
+    * Numbers with a fractional part or exponent are parsed as `Decimal`, never `float`,
+      so `12.30` stays `12.30`.
+    * Integers stay `int`. Booleans stay `bool`. `null` becomes `None`.
+    * Duplicate object keys are rejected (they make the diff ambiguous).
     """
-    limit = max_bytes if max_bytes is not None else DEFAULT_MAX_BYTES
+    data = raw.encode("utf-8") if isinstance(raw, str) else raw
 
-    if isinstance(text, bytes):
-        if len(text) > limit:
-            raise JsonInputError(side, f"file is larger than {limit // 1024} KB limit")
+    if len(data) > settings.MAX_JSON_BYTES:
+        limit_mb = settings.MAX_JSON_BYTES // (1024 * 1024)
+        raise JsonParseError(f"{label} is too large (limit {limit_mb} MB)")
+
+    if isinstance(raw, bytes):
         try:
-            text = text.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            raise JsonInputError(side, "file is not valid UTF-8 text") from None
+            text = data.decode("utf-8-sig", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise JsonParseError(f"{label} is not valid UTF-8") from exc
     else:
-        if len(text.encode("utf-8")) > limit:
-            raise JsonInputError(side, f"input is larger than {limit // 1024} KB limit")
-
+        text = raw
+    if text.startswith("﻿"):
+        text = text[1:]
     if not text.strip():
-        raise JsonInputError(side, "input is empty — paste or upload a JSON document")
+        raise JsonParseError(f"{label} is empty")
+
+    def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise JsonParseError(f"{label} contains duplicate key '{key}'")
+            result[key] = value
+        return result
 
     try:
-        data = json.loads(text, parse_float=Decimal)
+        value = json.loads(
+            text,
+            parse_float=Decimal,
+            parse_constant=_reject_non_finite,
+            object_pairs_hook=_reject_duplicates,
+        )
+    except JsonParseError:
+        raise
     except json.JSONDecodeError as exc:
-        raise JsonInputError(
-            side, f"invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}"
-        ) from None
-    except RecursionError:
-        raise JsonInputError(side, f"JSON is nested deeper than {MAX_DEPTH} levels") from None
+        raise JsonParseError(
+            f"{label} is not valid JSON: {exc.msg} (line {exc.lineno}, column {exc.colno})"
+        ) from exc
 
-    try:
-        _check_depth(data)
-    except (ValueError, RecursionError) as exc:
-        raise JsonInputError(side, str(exc) or "JSON is nested too deeply") from None
+    _check_depth(value)
+    return value
 
-    return data
+
+def _reject_non_finite(token: str) -> Any:
+    raise JsonParseError(f"non-standard JSON literal '{token}' is not allowed")

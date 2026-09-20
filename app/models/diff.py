@@ -1,14 +1,11 @@
-"""Pydantic models describing a semantic diff report."""
+"""Pydantic models describing the diff result."""
 
 from __future__ import annotations
 
-from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-JsonValue = None | bool | int | Decimal | str | list[Any] | dict[str, Any]
 
 
 class ChangeType(StrEnum):
@@ -17,32 +14,35 @@ class ChangeType(StrEnum):
     CHANGED = "changed"
 
 
-class MatchStrategy(StrEnum):
-    """How the elements of an array were paired between before/after."""
+class MatchMode(StrEnum):
+    IDENTITY = "identity"
+    POSITION = "position"
 
-    IDENTITY = "identity"  # objects matched by a unique identity key
-    VALUE = "value"  # scalars matched by their own value
-    POSITION = "position"  # fallback: index-by-index comparison
+
+class Identity(BaseModel):
+    """How an array element was identified (e.g. `id=T2`)."""
+
+    key: str
+    value: Any
 
 
 class Change(BaseModel):
     type: ChangeType
     path: str = Field(description="Raw JSON path, e.g. terminals[id=T2].tid")
-    display_path: str = Field(description="Humanized path, e.g. Terminal T2 / TID")
-    group: str = Field(description="Top-level section the change belongs to")
+    display_path: str = Field(description="Human-readable path, e.g. Terminal T2 / TID")
+    group: str
     old_value: Any = None
     new_value: Any = None
-    identity: str | None = Field(
-        default=None,
-        description="Identity of the array element this change belongs to, e.g. id=T2",
-    )
+    identity: Identity | None = None
     sensitive: bool = False
+    match_mode: MatchMode | None = Field(
+        default=None,
+        description="Set when the change lives inside an array: how elements were matched.",
+    )
     note: str | None = Field(
         default=None,
-        description="Extra context, e.g. 'Array matched by position'",
+        description="Extra context for humans, e.g. 'Array matched by position'.",
     )
-
-    model_config = {"arbitrary_types_allowed": True}
 
 
 class Summary(BaseModel):
@@ -51,21 +51,34 @@ class Summary(BaseModel):
     removed: int = 0
     changed: int = 0
 
+    @property
+    def is_equivalent(self) -> bool:
+        return self.total == 0
 
-class DiffReport(BaseModel):
+
+class DiffResult(BaseModel):
     summary: Summary
     changes: list[Change]
-    notes: list[str] = Field(
+    positional_arrays: list[str] = Field(
         default_factory=list,
-        description="Report-level notes, e.g. arrays that fell back to positional matching",
+        description="Raw paths of arrays that had to be compared by position.",
     )
 
-    @classmethod
-    def from_changes(cls, changes: list[Change], notes: list[str] | None = None) -> DiffReport:
-        summary = Summary(
-            total=len(changes),
-            added=sum(1 for c in changes if c.type is ChangeType.ADDED),
-            removed=sum(1 for c in changes if c.type is ChangeType.REMOVED),
-            changed=sum(1 for c in changes if c.type is ChangeType.CHANGED),
-        )
-        return cls(summary=summary, changes=changes, notes=notes or [])
+    @property
+    def groups(self) -> list[tuple[str, list[Change]]]:
+        """Changes grouped by section. Well-known sections first, then alphabetical."""
+        buckets: dict[str, list[Change]] = {}
+        for change in self.changes:
+            buckets.setdefault(change.group, []).append(change)
+
+        def rank(group: str) -> tuple[int, str]:
+            if group in GROUP_ORDER:
+                return (GROUP_ORDER.index(group), group)
+            if group == "Other":
+                return (len(GROUP_ORDER) + 1, group)
+            return (len(GROUP_ORDER), group)
+
+        return [(g, buckets[g]) for g in sorted(buckets, key=rank)]
+
+
+GROUP_ORDER: tuple[str, ...] = ("Company", "Payments", "Terminals", "Features", "Billing")

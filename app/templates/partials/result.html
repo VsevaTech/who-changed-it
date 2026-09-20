@@ -1,0 +1,59 @@
+{% set s = result.summary %}
+<div class="result-wrap">
+  {% if s.total == 0 %}
+  <div class="card equivalent">
+    <div class="check">✓</div>
+    <div>
+      <h2>Configurations are equivalent</h2>
+      <p>No semantic changes detected. Key order, whitespace and identity-matched array order are ignored.</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="card summary">
+    <div class="summary-main">
+      <div class="total"><span class="num">{{ s.total }}</span> change{{ "s" if s.total != 1 }}</div>
+      <div class="counts">
+        <span class="count count-changed"><b>{{ s.changed }}</b> Changed</span>
+        <span class="count count-added"><b>{{ s.added }}</b> Added</span>
+        <span class="count count-removed"><b>{{ s.removed }}</b> Removed</span>
+      </div>
+    </div>
+    <div class="export">
+      <button type="button" class="ghost" data-export="html">Download HTML report</button>
+      <button type="button" class="ghost" data-export="json">Download JSON report</button>
+    </div>
+  </div>
+
+  {% if result.positional_arrays %}
+  <div class="card notice">
+    <strong>Array matched by position</strong> — no reliable identity key was found for:
+    {% for p in result.positional_arrays %}<code>{{ p }}</code>{{ ", " if not loop.last }}{% endfor %}.
+    Reordering these arrays will show up as changes.
+  </div>
+  {% endif %}
+
+  <div class="toolbar card">
+    <div class="filters" role="group" aria-label="Filter by change type">
+      <button type="button" class="filter active" data-filter="all">All <b>{{ s.total }}</b></button>
+      <button type="button" class="filter" data-filter="changed">Changed <b>{{ s.changed }}</b></button>
+      <button type="button" class="filter" data-filter="added">Added <b>{{ s.added }}</b></button>
+      <button type="button" class="filter" data-filter="removed">Removed <b>{{ s.removed }}</b></button>
+    </div>
+    <input type="search" id="search" class="search" placeholder="Search path…" autocomplete="off">
+  </div>
+
+  <div class="groups">
+    {% for group, changes in result.groups %}
+    <section class="group card" data-group="{{ group }}">
+      <h3>{{ group }} <span class="group-count">{{ changes | length }}</span></h3>
+      <ul class="changes">
+        {% for change in changes %}
+          {% include "partials/_change.html" %}
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </div>
+  <p class="empty-filter hidden" id="empty-filter">No changes match the current filter.</p>
+  {% endif %}
+</div>

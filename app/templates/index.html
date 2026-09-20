@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Who Changed It? — semantic JSON config diff</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">Δ</span>
+    <div>
+      <h1>Who Changed It?</h1>
+      <p class="tagline">Turn noisy JSON diffs into human-readable configuration changes.</p>
+    </div>
+  </div>
+  <div class="privacy-badge" title="JSON is processed in memory and discarded after the response. No database, no logging of payloads, no analytics.">
+    Processed in memory · nothing stored
+  </div>
+</header>
+
+<main>
+  <form id="compare-form" method="post" action="/compare" enctype="multipart/form-data" novalidate>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-mode="paste" role="tab" aria-selected="true">Paste</button>
+      <button type="button" class="tab" data-mode="upload" role="tab" aria-selected="false">Upload</button>
+    </div>
+
+    <section class="mode mode-paste">
+      <div class="two-col">
+        <label class="field">
+          <span class="field-title">BEFORE</span>
+          <textarea name="before_text" id="before_text" spellcheck="false" placeholder='{ "payments": { "timeout": 30 } }'></textarea>
+        </label>
+        <label class="field">
+          <span class="field-title">AFTER</span>
+          <textarea name="after_text" id="after_text" spellcheck="false" placeholder='{ "payments": { "timeout": 10 } }'></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="mode mode-upload hidden">
+      <div class="two-col">
+        <label class="field file-field">
+          <span class="field-title">Before configuration</span>
+          <input type="file" name="before_file" id="before_file" accept=".json,application/json">
+          <span class="hint">Upload JSON (max {{ max_mb }} MB)</span>
+        </label>
+        <label class="field file-field">
+          <span class="field-title">After configuration</span>
+          <input type="file" name="after_file" id="after_file" accept=".json,application/json">
+          <span class="hint">Upload JSON (max {{ max_mb }} MB)</span>
+        </label>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button type="submit" class="primary" id="compare-btn">Compare configurations</button>
+      <button type="button" class="ghost" id="load-example">Load example</button>
+      <span class="status" id="status" aria-live="polite"></span>
+    </div>
+  </form>
+
+  <section id="result" aria-live="polite"></section>
+</main>
+
+<footer>
+  <span>who-changed-it v{{ version }}</span>
+  <span>Deterministic · No AI · Self-hosted</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
